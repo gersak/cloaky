@@ -1,7 +1,7 @@
 (ns cloaky.admin
   (:require
     clojure.set
-    [cloaky :as kc])
+    [cloaky.core :as kc])
   (:import
     [org.keycloak.admin.client Keycloak]
     [org.keycloak.admin.client.resource ClientResource]
@@ -135,8 +135,8 @@
                     :hotp CredentialRepresentation/HOTP
                     :totp CredentialRepresentation/TOTP}
       reverse-type-mapping (clojure.set/map-invert type-mapping)]
-  (extend-type neyho.eywa.keycloak.Credential
-    neyho.eywa.keycloak/Clojure2KeycloakRepresentation
+  (extend-type cloaky.core.Credential
+    cloaky.core/Clojure2KeycloakRepresentation
     (->representation
       [{:keys [id
                priority
@@ -165,7 +165,7 @@
 
 
   (extend-type CredentialRepresentation
-    neyho.eywa.keycloak/KeycloakRepresentation2Clojure
+    cloaky.core/KeycloakRepresentation2Clojure
     (<-representation [this]
       (kc/map->Credential
         {:id (some-> (.getId this) (#(java.util.UUID/fromString %)))
@@ -179,8 +179,8 @@
 
 
 
-(extend-type neyho.eywa.keycloak.User
-  neyho.eywa.keycloak/Clojure2KeycloakRepresentation
+(extend-type cloaky.core.User
+  cloaky.core/Clojure2KeycloakRepresentation
   (->representation
     [{:keys [email
              email-verified
@@ -218,7 +218,7 @@
 
 
 (extend-type UserRepresentation
-  neyho.eywa.keycloak/KeycloakRepresentation2Clojure
+  cloaky.core/KeycloakRepresentation2Clojure
   (<-representation [this]
     (kc/map->User
       {:id (some-> (.getId this) (#(java.util.UUID/fromString %)))
@@ -320,8 +320,8 @@
 
 
 
-(extend-type neyho.eywa.keycloak.Group
-  neyho.eywa.keycloak/Clojure2KeycloakRepresentation
+(extend-type cloaky.core.Group
+  cloaky.core/Clojure2KeycloakRepresentation
   (->representation
     [{:keys [id
              name
@@ -345,7 +345,7 @@
 
 
 (extend-type GroupRepresentation
-  neyho.eywa.keycloak/KeycloakRepresentation2Clojure
+  cloaky.core/KeycloakRepresentation2Clojure
   (<-representation [this]
     (kc/map->Group
       {:id (some-> (.getId this) (#(java.util.UUID/fromString %)))
@@ -391,7 +391,7 @@
 
 (defn get-group-by-name
   ([^String realm ^String _name]
-   (get-group-by-username *client* realm _name))
+   (get-group-by-name *client* realm _name))
   ([^Keycloak client ^String realm ^String _name]
    (let [[group] (.groups (realm-groups client realm) _name true nil nil false)]
      (when group (kc/<-representation group)))))
