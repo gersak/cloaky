@@ -1,0 +1,3 @@
+{:deps
+ {org.keycloak/keycloak-admin-client {:mvn/version "21.1.1"}}
+ :paths ["src"]}
