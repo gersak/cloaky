@@ -40,7 +40,14 @@
 
 
 (defrecord Role
-  [])
+  [id
+   name
+   description
+   attributes
+   container-id
+   client?
+   composite?
+   scope-param-required?])
 
 
 (defrecord SocialLink

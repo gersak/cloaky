@@ -1,0 +1,11 @@
+{
+  "realm": "your-realm-name",
+  "auth-server-url": "http://keycloak-server/auth",
+  "ssl-required": "external",
+  "resource": "your-client-id",
+  "credentials": {
+    "secret": "your-client-secret"
+  },
+  "confidential-port": 0,
+  "policy-enforcer": {}
+}

@@ -18,6 +18,8 @@
      UserResource
      GroupResource
      GroupsResource
+     RoleResource
+     RolesResource
      RealmResource]))
 
 
@@ -36,11 +38,6 @@
 
 
 (defonce ^:dynamic *client* nil)
-
-
-; (extend RealmRepresentation
-;   {:toString (fn [this]
-;                (str "RealmRepresentation[" (.getRealm this) ", " (.getDisplayName this) "]"))})
 
 
 (defn realms
@@ -124,9 +121,6 @@
                 email
                 offset
                 limit)))))
-
-
-(declare build-group build-groups build-role build-roles)
 
 
 (let [type-mapping {:password CredentialRepresentation/PASSWORD
@@ -430,28 +424,9 @@
      (.remove group))))
 
 
-;; ROLES
-
-
-
 (comment
-  (do
-    (def client (Keycloak/getInstance "http://localhost:9090/" "master" "admin" "admin" "admin-cli"))
-    (def realm "kbdev"))
-  ;;
-  ;;
-  ;;
-  (def id #uuid "e38c04ff-0dd5-495b-8ff1-bbd23a203f4d")
-  (def _name "Test1")
-  (def offset nil)
-  (def limit nil)
-  (map kc/<-representation (.groups (realm-groups client realm) "Test1" nil nil))
   (search-groups client realm)
   (delete-group client realm (-> *1 first))
-  (delete-group client realm {:id #uuid "edffebf7-2773-4705-b7ea-3552b76aaba2"})
-  (get-group client realm #uuid "e38c04ff-0dd5-495b-8ff1-bbd23a203f4d")
-  (kc/<-representation (.toRepresentation (realm-group client realm id)))
-  (.remove (realm-group client realm id))
   (get-group-by-name client realm "Test1")
   (def group-data
     (kc/map->Group
@@ -465,20 +440,128 @@
            :path "Test1/test 3"}])}))
   (def group-representation (kc/->representation group-data))
   (kc/<-representation group-representation)
-  (.getId group-representation)
-  ;; init
-  (def group (create-group client realm group-data))
-  (group-members client realm group)
-  (check-response
-    (.subGroup
-      (realm-group client realm (:id group))
-      (kc/->representation
-        (kc/map->Group
-          {:name "test3"}))))
+  (delete-group client realm group))
+
+
+;; ROLES
+(defn realm-roles
+  (^RolesResource
+    [^String realm]
+    (.roles (get-realm realm)))
+  (^RolesResource
+    [^Keycloak client ^String realm]
+    (.roles (get-realm client realm))))
+
+
+(extend-type cloaky.core.Role
+  cloaky.core/Clojure2KeycloakRepresentation
+  (->representation
+    [{:keys [id
+             name
+             description
+             attributes
+             container-id
+             client?
+             composites
+             composite?
+             scope-param-required?]}]
+    (let [x (RoleRepresentation.)]
+      (.setName x name)
+      (when id (.setId x (str id)))
+      (when description (.setDescription x description))
+      (when attributes (.setAttributes x attributes))
+      (when container-id (.setContainerId x container-id))
+      (when (some? client?) (.setClientRole x client?))
+      (when (some? composite?) (.setComposite x composite?))
+      ;; What are Role Composites
+      ; (when (not-empty composites ))
+      x)))
+
+
+(extend-type RoleRepresentation
+  cloaky.core/KeycloakRepresentation2Clojure
+  (<-representation [this]
+    (kc/map->Role
+      {:id (.getId this)
+       :name (.getName this)
+       :description (.getDescription this)
+       :attributes (.getAttributes this)
+       :container-id (.getContainerId this)
+       :client? (.getClientRole this)
+       :composite? (.isComposite this)
+       :scope-param-required? (.isScopeParamRequired this)})))
+
+
+(defn search-roles
+  ([^String realm] (search-roles *client* realm))
+  ([^Keycloak client ^String realm] (search-roles client realm nil))
+  ([^Keycloak client ^String realm {:keys [search offset limit] :as options}]
+   (let [roles (realm-roles client realm)]
+     (map
+       kc/<-representation
+       (if (nil? options)
+         (.list roles)
+         (.list search offset limit false))))))
+
+
+(defn realm-role
+  (^RoleResource
+    [^String realm name]
+    (realm-role *client* realm name))
+  (^RoleResource
+    [^Keycloak client ^String realm name]
+    (let [roles (realm-roles client realm)]
+      (.get roles name))))
+
+
+;; WTF - why doesn't Keycloak support getting role by Id?
+(defn get-role
+  ([^String realm id]
+   (get-user *client* realm id))
+  ([^Keycloak client ^String realm id]
+   (when-some [role (.getRole (.rolesById (get-realm client realm)) (str id))]
+     (kc/<-representation role))))
+
+
+(defn get-role-by-name
+  ([^String realm ^String _name]
+   (get-role-by-name *client* realm _name))
+  ([^Keycloak client ^String realm ^String _name]
+   (let [[role] (.get (realm-roles client realm) _name)]
+     (when role (kc/<-representation role)))))
+
+
+(defn create-role
+  ([^String realm role]
+   (create-role *client* realm role))
+  ([^Keycloak client ^String realm role]
+   (let [roles (realm-roles client realm)]
+     (check-response (.create roles (kc/->representation role)))
+     (get-role-by-name client realm (:name role)))))
+
+
+(defn delete-role
+  ([^String realm role]
+   (delete-role *client* realm role))
+  ([^Keycloak client ^String realm {:keys [id]}]
+   (when-some [role (realm-role client realm id)]
+     (.remove role))))
+
+
+
+
+
+
+(comment
+  (do
+    (def client (Keycloak/getInstance "http://localhost:9090/" "master" "admin" "admin" "admin-cli"))
+    (def realm "kbdev"))
   ;;
-  (create-group client realm group)
-  (delete-group client realm group)
-  ;;
-  (doseq [group [{:name "test 2"}
-                 {:name "test 3"}]]
-    (create-group client realm (kc/map->Group group))))
+  (def r (first (search-roles client realm)))
+  (get-role client realm (:id r))
+  (def role
+    (create-role
+      client realm
+      (kc/map->Role
+        {:name "Kadmin"
+         :description "Test role for testing roles"}))))
